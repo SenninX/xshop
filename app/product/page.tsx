@@ -107,48 +107,62 @@ function PaymentForm({
         },
       },
     });
-    setProcessing(false);
+    
     if (result.error) {
       setError(result.error.message || "決済エラー");
+      setProcessing(false);
     } else if (result.paymentIntent?.status === "succeeded") {
-      // 決済成功時に注文情報をメール送信
-      await fetch("/api/send-order-mail", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          lastName: address.lastName,
-          firstName: address.firstName,
-          email: address.email,
-          size: selectedSize,
-          quantity: 1,
-          zip: address.zip,
-          address: address.address,
-          address2: address.address2,
-          phone: address.phone,
-          selectedOption: selectedOption,
-          totalAmount: totalAmount,
-        }),
-      });
+      try {
+        // 決済成功時に注文情報をメール送信
+        await fetch("/api/send-order-mail", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            lastName: address.lastName,
+            firstName: address.firstName,
+            email: address.email,
+            size: selectedSize,
+            quantity: 1,
+            zip: address.zip,
+            address: address.address,
+            address2: address.address2,
+            phone: address.phone,
+            selectedOption: selectedOption,
+            totalAmount: totalAmount,
+          }),
+        });
+  
+        // スプレッドシートに書き込み
+        const sheetResponse = await fetch("/api/add-to-spreadsheet", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            lastName: address.lastName,
+            firstName: address.firstName,
+            email: address.email,
+            size: selectedSize,
+            selectedOption: selectedOption,
+            zip: address.zip,
+            address: address.address,
+            address2: address.address2,
+            phone: address.phone,
+            totalAmount: totalAmount,
+          }),
+        });
+        
+        if (!sheetResponse.ok) {
+          // もしシート書き込みが失敗したら、エラーを投げてcatchブロックで処理
+          const errorData = await sheetResponse.json();
+          throw new Error(errorData.error || 'スプレッドシートへの記録に失敗しました。');
+        }
+  
+        router.push("/thanks");
 
-      // スプレッドシートに書き込み
-      await fetch("/api/add-to-spreadsheet", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          lastName: address.lastName,
-          firstName: address.firstName,
-          email: address.email,
-          size: selectedSize,
-          selectedOption: selectedOption,
-          zip: address.zip,
-          address: address.address,
-          address2: address.address2,
-          phone: address.phone,
-          totalAmount: totalAmount,
-        }),
-      });
-
-      router.push("/thanks");
+      } catch (err: any) {
+        setError(`決済後の処理でエラーが発生しました。管理者にお問い合わせください。詳細: ${err.message}`);
+      } finally {
+        setProcessing(false);
+      }
     }
   };
 
