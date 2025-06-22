@@ -8,10 +8,6 @@ export default function Footer() {
           <a href="https://xcapitalism.com/privacy/" target="_blank" rel="noopener noreferrer" className="hover:underline">プライバシーポリシー</a>
           <a href="https://xcapitalism.com/tokusho/" target="_blank" rel="noopener noreferrer" className="hover:underline">特定商取引法に基づく表記</a>
         </div>
-        <div className="flex justify-center gap-4 flex-wrap mb-4">
-          <img src="https://upload.wikimedia.org/wikipedia/commons/0/04/Mastercard-logo.png" alt="Mastercard" className="h-7" />
-          <img src="https://upload.wikimedia.org/wikipedia/commons/0/04/Visa.svg" alt="Visa" className="h-7" />
-        </div>
         <div className="text-center text-gray-200 text-sm">© 2025, SenninX STORE</div>
       </div>
     </footer>

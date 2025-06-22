@@ -82,81 +82,96 @@ function PaymentForm({
     setError("");
 
     // 新しいPaymentIntentを作成
-    const res = await fetch("/api/create-payment-intent", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ amount: totalAmount }),
-    });
-    const data = await res.json();
-    const clientSecret = data.clientSecret;
+    try {
+      const res = await fetch("/api/create-payment-intent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount: totalAmount }),
+      });
 
-    // Stripe決済
-    const cardNumberElement = elements.getElement(CardNumberElement);
-    const result = await stripe.confirmCardPayment(clientSecret, {
-      payment_method: {
-        card: cardNumberElement!,
-        billing_details: {
-          name: `${address.lastName} ${address.firstName}`.trim(),
-          phone: address.phone,
-          email: address.email,
-          address: {
-            line1: address.address,
-            country: address.country,
-            postal_code: address.zip,
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || '決済サーバーとの通信に失敗しました。');
+      }
+
+      const data = await res.json();
+      const clientSecret = data.clientSecret;
+  
+      if (!clientSecret) {
+        throw new Error('clientSecretの取得に失敗しました。');
+      }
+
+      // Stripe決済
+      const cardNumberElement = elements.getElement(CardNumberElement);
+      const result = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: {
+          card: cardNumberElement!,
+          billing_details: {
+            name: `${address.lastName} ${address.firstName}`.trim(),
+            phone: address.phone,
+            email: address.email,
+            address: {
+              line1: address.address,
+              country: address.country,
+              postal_code: address.zip,
+            },
           },
         },
-      },
-    });
-    
-    if (result.error) {
-      // カード情報の間違いなど、即時エラーの処理
-      setError(result.error.message || "決済エラーが発生しました。入力内容をご確認ください。");
-      setProcessing(false);
-    } else {
-      // 即時エラーがない場合、決済ステータスを確認
-      if (result.paymentIntent.status === 'succeeded') {
-        // これが成功ルート
-        try {
-          // メール送信とスプレッドシート書き込みを実行
-          await fetch("/api/send-order-mail", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              lastName: address.lastName, firstName: address.firstName, email: address.email,
-              size: selectedSize, quantity: 1, zip: address.zip, address: address.address,
-              address2: address.address2, phone: address.phone, selectedOption: selectedOption,
-              totalAmount: totalAmount,
-            }),
-          });
-          
-          const sheetResponse = await fetch("/api/add-to-spreadsheet", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              lastName: address.lastName, firstName: address.firstName, email: address.email,
-              size: selectedSize, selectedOption: selectedOption, zip: address.zip,
-              address: address.address, address2: address.address2, phone: address.phone,
-              totalAmount: totalAmount,
-            }),
-          });
+      });
+      
+      if (result.error) {
+        // カード情報の間違いなど、即時エラーの処理
+        setError(result.error.message || "決済エラーが発生しました。入力内容をご確認ください。");
+        setProcessing(false);
+      } else {
+        // 即時エラーがない場合、決済ステータスを確認
+        if (result.paymentIntent.status === 'succeeded') {
+          // これが成功ルート
+          try {
+            // メール送信とスプレッドシート書き込みを実行
+            await fetch("/api/send-order-mail", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                lastName: address.lastName, firstName: address.firstName, email: address.email,
+                size: selectedSize, quantity: 1, zip: address.zip, address: address.address,
+                address2: address.address2, phone: address.phone, selectedOption: selectedOption,
+                totalAmount: totalAmount,
+              }),
+            });
+            
+            const sheetResponse = await fetch("/api/add-to-spreadsheet", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                lastName: address.lastName, firstName: address.firstName, email: address.email,
+                size: selectedSize, selectedOption: selectedOption, zip: address.zip,
+                address: address.address, address2: address.address2, phone: address.phone,
+                totalAmount: totalAmount,
+              }),
+            });
 
-          if (!sheetResponse.ok) {
-            const errorData = await sheetResponse.json();
-            throw new Error(errorData.error || 'スプレッドシートへの記録に失敗しました。');
+            if (!sheetResponse.ok) {
+              const errorData = await sheetResponse.json();
+              throw new Error(errorData.error || 'スプレッドシートへの記録に失敗しました。');
+            }
+            
+            router.push("/thanks");
+
+          } catch (err: any) {
+            // 決済後の処理でエラーが発生した場合
+            setError(`決済後の処理でエラーが発生しました。管理者にお問い合わせください。詳細: ${err.message}`);
+            setProcessing(false);
           }
-          
-          router.push("/thanks");
-
-        } catch (err: any) {
-          // 決済後の処理でエラーが発生した場合
-          setError(`決済後の処理でエラーが発生しました。管理者にお問い合わせください。詳細: ${err.message}`);
+        } else {
+          // 3Dセキュアなど、追加のアクションが必要な場合や、その他のステータス
+          setError(`決済を完了できませんでした。ステータス: ${result.paymentIntent.status}`);
           setProcessing(false);
         }
-      } else {
-        // 3Dセキュアなど、追加のアクションが必要な場合や、その他のステータス
-        setError(`決済を完了できませんでした。ステータス: ${result.paymentIntent.status}`);
-        setProcessing(false);
       }
+    } catch (err: any) {
+      setError(err.message);
+      setProcessing(false);
     }
   };
 
@@ -253,6 +268,13 @@ function PaymentForm({
         </div>
         {error && <div className="text-red-400 text-sm">{error}</div>}
         <button type="submit" disabled={processing || !stripe || !elements || !selectedSize} className="bg-[#FFD814] hover:bg-[#F7CA00] text-black px-6 py-3 rounded font-semibold shadow transition-colors w-full max-w-xs mx-auto flex items-center justify-center gap-2 mt-2 disabled:opacity-50 disabled:cursor-not-allowed">{processing ? "処理中..." : "支払う"}</button>
+        <div className="text-center mt-4">
+          <div className="flex justify-center items-center gap-4 mb-3">
+            <img src="https://upload.wikimedia.org/wikipedia/commons/0/04/Mastercard-logo.png" alt="Mastercard" className="h-6 bg-white p-1 rounded" />
+            <img src="https://upload.wikimedia.org/wikipedia/commons/0/04/Visa.svg" alt="Visa" className="h-6" />
+          </div>
+          <p className="text-xs text-gray-400">AMEXとJCBは対応していません</p>
+        </div>
       </div>
     </form>
   );

@@ -15,9 +15,9 @@ export default function ThanksPage() {
         </nav>
       </header>
       <main className="flex-1 flex items-center justify-center px-4">
-        <div className="bg-gray-800/70 rounded-xl p-10 max-w-xl w-full text-center shadow-lg flex flex-col items-center justify-center">
-          <h1 className="text-3xl md:text-4xl font-bold text-white mb-8 whitespace-nowrap">ご購入ありがとうございました！</h1>
-          <p className="text-lg text-gray-200 mb-10">
+        <div className="bg-gray-800/70 rounded-xl p-6 md:p-10 max-w-xl w-full text-center shadow-lg flex flex-col items-center justify-center">
+          <h1 className="text-2xl md:text-4xl font-bold text-white mb-6 md:mb-8 whitespace-nowrap">ご購入ありがとうございました！</h1>
+          <p className="text-base md:text-lg text-gray-200 mb-8 md:mb-10">
             ご注文・お支払いが正常に完了しました。
             <br /><br />
             以下の件名で、ご登録のメールアドレスに
@@ -32,7 +32,7 @@ export default function ThanksPage() {
             <br />
             プロモーションタブ等をご確認下さい。
           </p>
-          <a href="/" className="bg-[#FFD814] hover:bg-[#F7CA00] text-black px-8 py-3 rounded font-semibold shadow transition-colors">トップページへ戻る</a>
+          <a href="/" className="bg-[#FFD814] hover:bg-[#F7CA00] text-black px-6 py-2 md:px-8 md:py-3 rounded font-semibold shadow transition-colors">トップページへ戻る</a>
         </div>
       </main>
       <Footer />
