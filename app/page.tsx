@@ -114,7 +114,6 @@ export default function StarlinkTshirtStore() {
                   className="object-contain w-full h-full"
                 />
               </div>
-              <p className="text-xl font-bold mb-2">¥3,500/1枚</p>
               <div className="flex items-center gap-2 mb-4">
                 <div className="flex">
                   {[...Array(5)].map((_, i) => (

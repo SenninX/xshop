@@ -1,7 +1,7 @@
 "use client"
 import Image from "next/image";
 import { Search, User, ShoppingBag, ShoppingCart, X } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import Footer from "@/components/ui/footer";
@@ -9,9 +9,44 @@ import { useRouter } from "next/navigation";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from "@stripe/react-stripe-js";
 
+interface Address {
+  lastName: string;
+  firstName: string;
+  email: string;
+  address: string;
+  address2: string;
+  country: string;
+  zip: string;
+  phone: string;
+}
+
 function PaymentForm({
-  selectedSize, setSelectedSize, quantity, setQuantity, address, setAddress, clientSecret, processing, setProcessing, error, setError, success, setSuccess
-}: any) {
+  selectedOption,
+  selectedSize,
+  setSelectedSize,
+  address,
+  setAddress,
+  clientSecret,
+  processing,
+  setProcessing,
+  error,
+  setError,
+  success,
+  setSuccess,
+}: {
+  selectedOption: string;
+  selectedSize: string;
+  setSelectedSize: (size: string) => void;
+  address: Address;
+  setAddress: (address: Address | ((prev: Address) => Address)) => void;
+  clientSecret: string | null;
+  processing: boolean;
+  setProcessing: (processing: boolean) => void;
+  error: string;
+  setError: (error: string) => void;
+  success: boolean;
+  setSuccess: (success: boolean) => void;
+}) {
   const stripe = useStripe();
   const elements = useElements();
   const router = useRouter();
@@ -27,6 +62,19 @@ function PaymentForm({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  const amount = useMemo(() => {
+    if (selectedOption === "vip") return 4700;
+    if (selectedOption === "normal") return 1700;
+    if (selectedOption === "tshirt") return 1470;
+    return 0;
+  }, [selectedOption]);
+
+  const shippingFee = 500;
+  const totalAmount = amount + shippingFee;
+
+  // プラン名を選択肢に応じて表示
+  const planName = selectedOption === "vip" ? "VIPファミリー" : selectedOption === "normal" ? "Normalメンバー" : "Ｔシャツオンリー";
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!stripe || !elements) return;
@@ -37,7 +85,7 @@ function PaymentForm({
     const res = await fetch("/api/create-payment-intent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ amount: 3500 * quantity }),
+      body: JSON.stringify({ amount: totalAmount }),
     });
     const data = await res.json();
     const clientSecret = data.clientSecret;
@@ -72,11 +120,13 @@ function PaymentForm({
           firstName: address.firstName,
           email: address.email,
           size: selectedSize,
-          quantity,
+          quantity: 1,
           zip: address.zip,
           address: address.address,
           address2: address.address2,
           phone: address.phone,
+          selectedOption: selectedOption,
+          totalAmount: totalAmount,
         }),
       });
       router.push("/thanks");
@@ -86,9 +136,8 @@ function PaymentForm({
   if (success) return <div className="text-green-400 font-bold text-center">決済が完了しました！</div>;
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 bg-gray-900/80 p-6 rounded-xl mt-2 w-full max-w-lg mx-auto">
+    <form onSubmit={handleSubmit} className="space-y-4 bg-gray-900/80 p-6 rounded-xl w-full max-w-lg mx-auto">
       <div className="grid grid-cols-1 gap-4">
-        <label className="block text-white text-sm font-medium">サイズ選択</label>
         <Select value={selectedSize} onValueChange={setSelectedSize} required>
           <SelectTrigger className="bg-gray-800 border-gray-600 text-white w-full">
             <SelectValue placeholder="サイズを選択" />
@@ -102,17 +151,6 @@ function PaymentForm({
             <SelectItem value="xxl">XXL</SelectItem>
           </SelectContent>
         </Select>
-        <label className="block text-white text-sm font-medium">枚数</label>
-        <Select value={quantity.toString()} onValueChange={v => setQuantity(Number(v))} required>
-          <SelectTrigger className="bg-gray-800 border-gray-600 text-white w-full">
-            <SelectValue placeholder="枚数を選択" />
-          </SelectTrigger>
-          <SelectContent>
-            {[...Array(10)].map((_, i) => (
-              <SelectItem key={i+1} value={(i+1).toString()}>{i+1}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
         <div className="grid grid-cols-2 gap-4">
           <input className="px-3 py-2 rounded bg-gray-800 border border-gray-600 text-white" placeholder="姓" value={address.lastName} onChange={e => setAddress({ ...address, lastName: e.target.value })} required />
           <input className="px-3 py-2 rounded bg-gray-800 border border-gray-600 text-white" placeholder="名" value={address.firstName} onChange={e => setAddress({ ...address, firstName: e.target.value })} required />
@@ -123,19 +161,24 @@ function PaymentForm({
           placeholder="郵便番号"
           value={address.zip}
           onChange={async (e) => {
-            const zip = e.target.value;
-            setAddress({ ...address, zip });
-            if (zip.length === 7 && /^[0-9]+$/.test(zip)) {
+            const rawZip = e.target.value;
+            // 入力値を即座にstateに反映
+            setAddress(prev => ({ ...prev, zip: rawZip }));
+
+            // API呼び出しのためにハイフンを除去
+            const zipForApi = rawZip.replace(/-/g, '');
+
+            if (zipForApi.length === 7 && /^[0-9]+$/.test(zipForApi)) {
               try {
-                const res = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${zip}`);
+                const res = await fetch(`https://zipcloud.ibsnet.co.jp/api/search?zipcode=${zipForApi}`);
                 const data = await res.json();
                 if (data.results && data.results[0]) {
                   const result = data.results[0];
-                  setAddress({
-                    ...address,
-                    zip,
+                  // 住所をstateに反映
+                  setAddress(prev => ({
+                    ...prev,
                     address: `${result.address1}${result.address2}${result.address3}`,
-                  });
+                  }));
                 }
               } catch (err) {
                 // 住所取得失敗時は何もしない
@@ -160,18 +203,26 @@ function PaymentForm({
         />
         <input className="px-3 py-2 rounded bg-gray-800 border border-gray-600 text-white" placeholder="電話番号" value={address.phone} onChange={e => setAddress({ ...address, phone: e.target.value })} required />
         <div className="flex flex-col gap-4">
-          <label className="block text-white text-sm mb-0.5">カード番号</label>
-          <CardNumberElement options={{ style: { base: { fontSize: inputFontSize, color: '#fff', backgroundColor: '#1e293b' } } }} className="bg-gray-800 text-white border border-gray-600 rounded px-3 py-2" />
+          <CardNumberElement 
+            options={{ 
+              style: { base: { fontSize: inputFontSize, color: '#fff', backgroundColor: '#1e293b' } }, 
+              placeholder: 'カード番号（例: 4242 4242 4242 4242）' 
+            }} 
+            className="bg-gray-800 text-white border border-gray-600 rounded px-3 py-2" 
+          />
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-white text-xs sm:text-sm mb-1">有効期限（月/年）</label>
               <CardExpiryElement options={{ style: { base: { fontSize: inputFontSize, color: '#fff', backgroundColor: '#1e293b' } } }} className="bg-gray-800 text-white border border-gray-600 rounded px-3 py-2" />
             </div>
             <div>
-              <label className="block text-white text-xs sm:text-sm mb-1">セキュリティ番号</label>
-              <CardCvcElement options={{ style: { base: { fontSize: inputFontSize, color: '#fff', backgroundColor: '#1e293b' } }, placeholder: 'CVC' }} className="bg-gray-800 text-white border border-gray-600 rounded px-3 py-2" />
+              <CardCvcElement options={{ style: { base: { fontSize: inputFontSize, color: '#fff', backgroundColor: '#1e293b' } }, placeholder: 'セキュリティコード' }} className="bg-gray-800 text-white border border-gray-600 rounded px-3 py-2" />
             </div>
           </div>
+        </div>
+        <div className="text-center my-4">
+          <span className="text-lg text-gray-300">{planName}：{amount.toLocaleString()}円{selectedOption === "tshirt" ? "" : "/月"}</span>
+          <div className="text-xs text-gray-300 mt-2">配送サポート、事務手数料: 500円</div>
+          <div className="text-2xl md:text-3xl font-extrabold text-white mt-2">合計: {totalAmount.toLocaleString()}円{selectedOption === "tshirt" ? "" : "/月"}</div>
         </div>
         {error && <div className="text-red-400 text-sm">{error}</div>}
         <button type="submit" disabled={processing || !stripe || !elements || !selectedSize} className="bg-[#FFD814] hover:bg-[#F7CA00] text-black px-6 py-3 rounded font-semibold shadow transition-colors w-full max-w-xs mx-auto flex items-center justify-center gap-2 mt-2 disabled:opacity-50 disabled:cursor-not-allowed">{processing ? "処理中..." : "支払う"}</button>
@@ -181,11 +232,11 @@ function PaymentForm({
 }
 
 export default function ProductPage() {
+  const [selectedOption, setSelectedOption] = useState("vip");
   const [selectedSize, setSelectedSize] = useState("");
-  const [quantity, setQuantity] = useState(1);
   const [showMiniCart, setShowMiniCart] = useState(false);
   const router = useRouter();
-  const [address, setAddress] = useState({ lastName: "", firstName: "", address: "", country: "JP", zip: "", phone: "" });
+  const [address, setAddress] = useState<Address>({ lastName: "", firstName: "", email: "", address: "", address2: "", country: "JP", zip: "", phone: "" });
   const [processing, setProcessing] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
@@ -199,7 +250,7 @@ export default function ProductPage() {
       name: "新アドバンスマインド2025限定Tシャツ",
       image: "/X-NAM-Tshirt.png",
       size: selectedSize,
-      quantity,
+      quantity: 1,
       price: 3500,
     };
     // 既存カート取得
@@ -208,7 +259,7 @@ export default function ProductPage() {
     // 同じ商品・サイズがあれば数量加算
     const idx = cart.findIndex((i:any) => i.id === item.id && i.size === item.size);
     if (idx > -1) {
-      cart[idx].quantity += quantity;
+      cart[idx].quantity += 1;
     } else {
       cart.push(item);
     }
@@ -240,7 +291,7 @@ export default function ProductPage() {
             <Image src="/X-NAM-Tshirt.png" alt="新アドバンスマインド2025限定Tシャツ" width={64} height={64} className="rounded bg-gray-100 object-cover" />
             <div className="flex-1">
               <div className="font-bold text-gray-900 leading-tight">新アドバンスマインド2025<br className='md:hidden'/>限定Tシャツ</div>
-              <div className="text-xs text-gray-500 mt-1">サイズ: {selectedSize ? selectedSize.toUpperCase() : "-"}　数量: {quantity}</div>
+              <div className="text-xs text-gray-500 mt-1">サイズ: {selectedSize ? selectedSize.toUpperCase() : "-"}　数量: 1</div>
             </div>
           </div>
           <div className="px-5 pb-4 flex flex-col gap-2">
@@ -252,43 +303,85 @@ export default function ProductPage() {
         </div>
       )}
       {/* Header */}
-      <header className="relative z-10 flex flex-col md:flex-row items-center justify-between p-6 lg:px-12 w-full">
-        <div className="text-2xl font-bold text-white tracking-wider mb-2 md:mb-0">SenninX STORE</div>
-        <nav className="flex items-center space-x-8 text-white">
+      <header className="relative z-10 flex items-center justify-between p-6 lg:px-12 w-full">
+        <div className="text-xl sm:text-2xl font-bold text-white tracking-wider whitespace-nowrap">SenninX STORE</div>
+        <nav className="hidden md:flex items-center space-x-8 text-white">
           <a href="/" className="hover:text-blue-300 transition-colors">HOME</a>
           <a href="/contact" className="hover:text-blue-300 transition-colors">連絡先</a>
         </nav>
       </header>
       <div className="max-w-5xl w-full flex flex-col md:flex-row gap-12 bg-gray-800/50 border border-gray-700 backdrop-blur-sm rounded-xl p-8 text-white">
         {/* 右：商品情報 */}
-        <div className="flex-1 flex flex-col gap-6 justify-start items-center w-full max-w-full md:max-w-md mx-auto">
-          <h1 className="text-base md:text-3xl font-bold text-center leading-tight">
-            <span className="whitespace-nowrap text-base md:text-2xl">新アドバンスマインド2025</span><br />
-            <span className="text-xl md:text-3xl">限定Ｔシャツ</span>
+        <div className="flex-1 flex flex-col gap-6 justify-start items-center w-full max-w-full md:max-w-xl mx-auto">
+          <h1 className="font-bold text-center">
+            <span className="whitespace-nowrap text-base md:text-4xl block">新アドバンスマインド2025</span>
+            <span className="text-xl md:text-5xl block md:mt-4">限定Ｔシャツ</span>
           </h1>
           <div className="flex-1 flex flex-col items-center">
             <Image src="/X-NAM-Tshirt.png" alt="新アドバンスマインド2025限定Tシャツ" width={400} height={400} className="rounded-xl bg-gray-900" />
           </div>
           <div className="text-gray-300 text-base text-center">
-            <p>2025年限定デザインの高品質Tシャツ。<br />X-Familyロゴがフロントに大きくプリントされています。<br />普段使いにも、特別な日にもおすすめです。</p>
+            {/* 商品説明文を削除 */}
           </div>
-          <Elements stripe={stripePromise}>
-            <PaymentForm
-              selectedSize={selectedSize}
-              setSelectedSize={setSelectedSize}
-              quantity={quantity}
-              setQuantity={setQuantity}
-              address={address}
-              setAddress={setAddress}
-              clientSecret={clientSecret}
-              processing={processing}
-              setProcessing={setProcessing}
-              error={error}
-              setError={setError}
-              success={success}
-              setSuccess={setSuccess}
-            />
-          </Elements>
+          <div className="w-full mb-6">
+            <h2 className="text-base sm:text-lg font-bold mb-6 whitespace-nowrap text-center md:text-left">ご希望のプランを選択してください。</h2>
+            <div className="flex flex-col gap-4">
+              <label className={`p-4 rounded border cursor-pointer ${selectedOption === "vip" ? "border-yellow-400 bg-yellow-50/10" : "border-gray-600 bg-gray-900/40"}`}>
+                <div className="flex items-center">
+                  <input type="radio" name="option" value="vip" checked={selectedOption === "vip"} onChange={() => setSelectedOption("vip")} className="mr-2 accent-yellow-400 w-5 h-5" />
+                  <span>
+                    <span className="font-bold text-xl md:text-2xl" style={{ color: '#D75F02' }}>VIPファミリー</span><span className="text-xl md:text-2xl" style={{ color: '#D75F02' }}>（4700円/月）</span>
+                  </span>
+                </div>
+                <ul className="text-sm mt-1 ml-6 list-[lower-alpha] pl-6">
+                  <li>毎月最新バージョンのTシャツを配送</li>
+                  <li>デイリー仙人マインド（仙人さんソロ・トーク10分間-毎朝6時メール配信）</li>
+                  <li>緊急・X-極秘ミーティング（完全ソロトーク60分間-毎月の月末メール配信）</li>
+                </ul>
+              </label>
+              <label className={`p-4 rounded border cursor-pointer ${selectedOption === "normal" ? "border-yellow-400 bg-yellow-50/10" : "border-gray-600 bg-gray-900/40"}`}>
+                <div className="flex items-center">
+                  <input type="radio" name="option" value="normal" checked={selectedOption === "normal"} onChange={() => setSelectedOption("normal")} className="mr-2 accent-yellow-400 w-5 h-5" />
+                  <span>
+                    <span className="font-bold text-xl md:text-2xl">Normalメンバー</span><span className="text-xl md:text-2xl">（1700円/月）</span>
+                  </span>
+                </div>
+                <ul className="text-sm mt-1 ml-6 list-[lower-alpha] pl-6">
+                  <li>今回のみTシャツを配送</li>
+                  <li>デイリー仙人マインド（仙人さんソロ・トーク10分間-毎朝6時メール配信）</li>
+                </ul>
+              </label>
+              <label className={`p-4 rounded border cursor-pointer ${selectedOption === "tshirt" ? "border-yellow-400 bg-yellow-50/10" : "border-gray-600 bg-gray-900/40"}`}>
+                <div className="flex items-center">
+                  <input type="radio" name="option" value="tshirt" checked={selectedOption === "tshirt"} onChange={() => setSelectedOption("tshirt")} className="mr-2 accent-yellow-400 w-5 h-5" />
+                  <span>
+                    <span className="font-bold text-xl md:text-2xl">Tシャツのみ希望</span><span className="text-xl md:text-2xl">（1470円）</span>
+                  </span>
+                </div>
+                <ul className="text-sm mt-1 ml-6 list-[lower-alpha] pl-6">
+                  <li>今回のみTシャツを配送</li>
+                </ul>
+              </label>
+            </div>
+          </div>
+          <div className="w-full">
+            <Elements stripe={stripePromise}>
+              <PaymentForm
+                selectedOption={selectedOption}
+                selectedSize={selectedSize}
+                setSelectedSize={setSelectedSize}
+                address={address}
+                setAddress={setAddress}
+                clientSecret={clientSecret}
+                processing={processing}
+                setProcessing={setProcessing}
+                error={error}
+                setError={setError}
+                success={success}
+                setSuccess={setSuccess}
+              />
+            </Elements>
+          </div>
         </div>
       </div>
       <div className="mt-16" />
