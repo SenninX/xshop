@@ -109,58 +109,52 @@ function PaymentForm({
     });
     
     if (result.error) {
-      setError(result.error.message || "決済エラー");
+      // カード情報の間違いなど、即時エラーの処理
+      setError(result.error.message || "決済エラーが発生しました。入力内容をご確認ください。");
       setProcessing(false);
-    } else if (result.paymentIntent?.status === "succeeded") {
-      try {
-        // 決済成功時に注文情報をメール送信
-        await fetch("/api/send-order-mail", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            lastName: address.lastName,
-            firstName: address.firstName,
-            email: address.email,
-            size: selectedSize,
-            quantity: 1,
-            zip: address.zip,
-            address: address.address,
-            address2: address.address2,
-            phone: address.phone,
-            selectedOption: selectedOption,
-            totalAmount: totalAmount,
-          }),
-        });
-  
-        // スプレッドシートに書き込み
-        const sheetResponse = await fetch("/api/add-to-spreadsheet", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            lastName: address.lastName,
-            firstName: address.firstName,
-            email: address.email,
-            size: selectedSize,
-            selectedOption: selectedOption,
-            zip: address.zip,
-            address: address.address,
-            address2: address.address2,
-            phone: address.phone,
-            totalAmount: totalAmount,
-          }),
-        });
-        
-        if (!sheetResponse.ok) {
-          // もしシート書き込みが失敗したら、エラーを投げてcatchブロックで処理
-          const errorData = await sheetResponse.json();
-          throw new Error(errorData.error || 'スプレッドシートへの記録に失敗しました。');
-        }
-  
-        router.push("/thanks");
+    } else {
+      // 即時エラーがない場合、決済ステータスを確認
+      if (result.paymentIntent.status === 'succeeded') {
+        // これが成功ルート
+        try {
+          // メール送信とスプレッドシート書き込みを実行
+          await fetch("/api/send-order-mail", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              lastName: address.lastName, firstName: address.firstName, email: address.email,
+              size: selectedSize, quantity: 1, zip: address.zip, address: address.address,
+              address2: address.address2, phone: address.phone, selectedOption: selectedOption,
+              totalAmount: totalAmount,
+            }),
+          });
+          
+          const sheetResponse = await fetch("/api/add-to-spreadsheet", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              lastName: address.lastName, firstName: address.firstName, email: address.email,
+              size: selectedSize, selectedOption: selectedOption, zip: address.zip,
+              address: address.address, address2: address.address2, phone: address.phone,
+              totalAmount: totalAmount,
+            }),
+          });
 
-      } catch (err: any) {
-        setError(`決済後の処理でエラーが発生しました。管理者にお問い合わせください。詳細: ${err.message}`);
-      } finally {
+          if (!sheetResponse.ok) {
+            const errorData = await sheetResponse.json();
+            throw new Error(errorData.error || 'スプレッドシートへの記録に失敗しました。');
+          }
+          
+          router.push("/thanks");
+
+        } catch (err: any) {
+          // 決済後の処理でエラーが発生した場合
+          setError(`決済後の処理でエラーが発生しました。管理者にお問い合わせください。詳細: ${err.message}`);
+          setProcessing(false);
+        }
+      } else {
+        // 3Dセキュアなど、追加のアクションが必要な場合や、その他のステータス
+        setError(`決済を完了できませんでした。ステータス: ${result.paymentIntent.status}`);
         setProcessing(false);
       }
     }
