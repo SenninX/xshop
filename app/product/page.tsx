@@ -195,7 +195,7 @@ function PaymentForm({
           required
         />
         <input
-          className="px-3 py-2 rounded bg-gray-800 border border-gray-600 text-white"
+          className="px-3 py-2 rounded bg-gray-800 border border-gray-600 text-white text-sm md:text-base"
           placeholder="番地・建物名・部屋番号など"
           value={address.address2 || ''}
           onChange={e => setAddress({ ...address, address2: e.target.value })}
@@ -323,42 +323,45 @@ export default function ProductPage() {
           <div className="text-gray-300 text-base text-center">
             {/* 商品説明文を削除 */}
           </div>
-          <div className="w-full mb-6">
-            <h2 className="text-base sm:text-lg font-bold mb-6 whitespace-nowrap text-center md:text-left">ご希望のプランを選択してください。</h2>
+          <div className="w-full mb-4 md:mb-6">
+            {/* PC用 */}
+            <h2 className="hidden md:block text-base sm:text-lg font-bold mb-6 whitespace-nowrap text-left">ご希望のプランを選択してください。</h2>
+            {/* スマホ用 */}
+            <h2 className="md:hidden text-base font-bold mb-6 text-center whitespace-nowrap">ご希望のプランを選択して下さい。</h2>
             <div className="flex flex-col gap-4">
               <label className={`p-4 rounded border cursor-pointer ${selectedOption === "vip" ? "border-yellow-400 bg-yellow-50/10" : "border-gray-600 bg-gray-900/40"}`}>
                 <div className="flex items-center">
                   <input type="radio" name="option" value="vip" checked={selectedOption === "vip"} onChange={() => setSelectedOption("vip")} className="mr-2 accent-yellow-400 w-5 h-5" />
                   <span>
-                    <span className="font-bold text-xl md:text-2xl" style={{ color: '#D75F02' }}>VIPファミリー</span><span className="text-xl md:text-2xl" style={{ color: '#D75F02' }}>（4700円/月）</span>
+                    <span className="font-bold text-xl md:text-2xl" style={{ color: '#D75F02' }}>VIPファミリー</span><br className="md:hidden" /><span className="text-xl md:text-2xl" style={{ color: '#D75F02' }}>（4700円/月）</span>
                   </span>
                 </div>
-                <ul className="text-sm mt-1 ml-6 list-[lower-alpha] pl-6">
+                <ul className="text-sm mt-1 ml-5 md:ml-6 list-[lower-alpha] pl-5 md:pl-6">
                   <li>毎月最新バージョンのTシャツを配送</li>
-                  <li>デイリー仙人マインド（仙人さんソロ・トーク10分間-毎朝6時メール配信）</li>
-                  <li>緊急・X-極秘ミーティング（完全ソロトーク60分間-毎月の月末メール配信）</li>
+                  <li className="mt-2 md:mt-0">デイリー仙人マインド<br className="md:hidden" />（仙人さんソロ・トーク10分間-毎朝6時メール配信）</li>
+                  <li className="mt-2 md:mt-0">緊急・X-極秘ミーティング<br className="md:hidden" />（完全ソロトーク60分間-毎月の月末メール配信）</li>
                 </ul>
               </label>
               <label className={`p-4 rounded border cursor-pointer ${selectedOption === "normal" ? "border-yellow-400 bg-yellow-50/10" : "border-gray-600 bg-gray-900/40"}`}>
                 <div className="flex items-center">
                   <input type="radio" name="option" value="normal" checked={selectedOption === "normal"} onChange={() => setSelectedOption("normal")} className="mr-2 accent-yellow-400 w-5 h-5" />
                   <span>
-                    <span className="font-bold text-xl md:text-2xl">Normalメンバー</span><span className="text-xl md:text-2xl">（1700円/月）</span>
+                    <span className="font-bold text-xl md:text-2xl">Normalメンバー</span><br className="md:hidden" /><span className="text-xl md:text-2xl">（1700円/月）</span>
                   </span>
                 </div>
-                <ul className="text-sm mt-1 ml-6 list-[lower-alpha] pl-6">
+                <ul className="text-sm mt-1 ml-5 md:ml-6 list-[lower-alpha] pl-5 md:pl-6">
                   <li>今回のみTシャツを配送</li>
-                  <li>デイリー仙人マインド（仙人さんソロ・トーク10分間-毎朝6時メール配信）</li>
+                  <li className="mt-2 md:mt-0">デイリー仙人マインド<br className="md:hidden" />（仙人さんソロ・トーク10分間-毎朝6時メール配信）</li>
                 </ul>
               </label>
               <label className={`p-4 rounded border cursor-pointer ${selectedOption === "tshirt" ? "border-yellow-400 bg-yellow-50/10" : "border-gray-600 bg-gray-900/40"}`}>
                 <div className="flex items-center">
                   <input type="radio" name="option" value="tshirt" checked={selectedOption === "tshirt"} onChange={() => setSelectedOption("tshirt")} className="mr-2 accent-yellow-400 w-5 h-5" />
                   <span>
-                    <span className="font-bold text-xl md:text-2xl">Tシャツのみ希望</span><span className="text-xl md:text-2xl">（1470円）</span>
+                    <span className="font-bold text-xl md:text-2xl">Tシャツのみ希望</span><br className="md:hidden" /><span className="text-xl md:text-2xl">（1470円）</span>
                   </span>
                 </div>
-                <ul className="text-sm mt-1 ml-6 list-[lower-alpha] pl-6">
+                <ul className="text-sm mt-1 ml-5 md:ml-6 list-[lower-alpha] pl-5 md:pl-6">
                   <li>今回のみTシャツを配送</li>
                 </ul>
               </label>
