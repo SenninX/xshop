@@ -129,7 +129,7 @@ function PaymentForm({
           // これが成功ルート
           try {
             // メール送信とスプレッドシート書き込みを実行
-            await fetch("/api/send-order-mail", {
+            const mailResponse = await fetch("/api/send-order-mail", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -139,6 +139,11 @@ function PaymentForm({
                 totalAmount: totalAmount,
               }),
             });
+
+            if (!mailResponse.ok) {
+              const errorData = await mailResponse.json();
+              throw new Error(errorData.error || '購入完了メールの送信に失敗しました。');
+            }
             
             const sheetResponse = await fetch("/api/add-to-spreadsheet", {
               method: "POST",
