@@ -1,6 +1,6 @@
 "use client"
 import Image from "next/image";
-import { Search, User, ShoppingBag, ShoppingCart, X } from "lucide-react";
+import { Search, User, ShoppingBag, ShoppingCart, X, Loader2 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
@@ -267,7 +267,16 @@ function PaymentForm({
           <div className="text-2xl md:text-3xl font-extrabold text-white mt-2">合計: {totalAmount.toLocaleString()}円{selectedOption === "tshirt" ? "" : "/月"}</div>
         </div>
         {error && <div className="text-red-400 text-sm">{error}</div>}
-        <button type="submit" disabled={processing || !stripe || !elements || !selectedSize} className="bg-[#FFD814] hover:bg-[#F7CA00] text-black px-6 py-3 rounded font-semibold shadow transition-colors w-full max-w-xs mx-auto flex items-center justify-center gap-2 mt-2 disabled:opacity-50 disabled:cursor-not-allowed">{processing ? "処理中..." : "支払う"}</button>
+        <button type="submit" disabled={processing || !stripe || !elements || !selectedSize} className="bg-[#FFD814] hover:bg-[#F7CA00] text-black px-6 py-3 rounded font-semibold shadow transition-colors w-full max-w-xs mx-auto flex items-center justify-center gap-2 mt-2 disabled:opacity-50 disabled:cursor-not-allowed">
+          {processing ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>処理中...</span>
+            </>
+          ) : (
+            "支払う"
+          )}
+        </button>
         <div className="text-center mt-4">
           <div className="flex justify-center items-center gap-4 mb-3">
             <img src="https://upload.wikimedia.org/wikipedia/commons/0/04/Mastercard-logo.png" alt="Mastercard" className="h-6 bg-white p-1 rounded" />
