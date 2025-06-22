@@ -129,6 +129,25 @@ function PaymentForm({
           totalAmount: totalAmount,
         }),
       });
+
+      // スプレッドシートに書き込み
+      await fetch("/api/add-to-spreadsheet", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lastName: address.lastName,
+          firstName: address.firstName,
+          email: address.email,
+          size: selectedSize,
+          selectedOption: selectedOption,
+          zip: address.zip,
+          address: address.address,
+          address2: address.address2,
+          phone: address.phone,
+          totalAmount: totalAmount,
+        }),
+      });
+
       router.push("/thanks");
     }
   };
